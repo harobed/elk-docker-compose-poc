@@ -1,0 +1,43 @@
+version: '2'
+services:
+  elasticsearch:
+    build: elasticsearch-docker/
+    restart: unless-stopped
+    volumes:
+      - ./es-data/:/usr/share/elasticsearch/data
+      - ./es-config/:/usr/share/elasticsearch/config/
+    ports:
+      - "9200:9200"
+
+  logstash:
+    image: logstash:2.3.4
+    restart: unless-stopped
+    volumes:
+      - ./logstash/conf.d/:/config-dir/
+    command: logstash -f /config-dir/logstash.conf
+    expose:
+      - 5044
+    ports:
+      - "5044:5044"
+      - "12201:12201/udp"
+    links:
+      - elasticsearch:elasticsearch
+
+  kibana:
+    image: kibana:4.5.4
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+
+  filebeat:
+    image: willfarrell/filebeat:1.2
+    restart: unless-stopped
+    volumes:
+      - ./filebeat/:/etc/filebeat/
+      - ./logs/:/logs/
+    command: "filebeat -v -e -c /etc/filebeat/filebeat.yml"
+    environment:
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5044
+    links:
+      - logstash:logstash
